@@ -14,6 +14,7 @@ use crate::utils::lagrange_interpolate;
 /// 1. (1, 2, 8) - 3 (ROBUST)
 /// 2. (1, 3, 8) - 1 (FAST)
 /// 3. (2, 2, 8) - 1 (PRIVATE) [currently implemented]
+/// The other configurations will need the packing and unpacking functions to be modified and reimplemented
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct PackedSharingParams<F>
 where
