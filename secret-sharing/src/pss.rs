@@ -212,6 +212,8 @@ impl<F: FftField> PackedSharingParams<F> {
 // Tests
 #[cfg(test)]
 mod tests {
+    use crate::utils::eval;
+
     use super::*;
     use ark_bls12_377::Fr as F;
     use ark_std::UniformRand;
@@ -294,5 +296,19 @@ mod tests {
 
         assert_eq!(expected, mul_secrets);
         assert_eq!(expected, lagrange_secrets);
+    }
+
+    #[test]
+    fn test_eval_interpolate() {
+        let degree = 32u32;
+        let rng = &mut ark_std::test_rng();
+        let p = (0..degree)
+            .map(|_| F::rand(rng))
+            .collect::<Vec<F>>();
+        let xs = (1..=2*degree).map(|x| F::from(x)).collect::<Vec<F>>();
+        let ys = xs.iter().map(|x| eval(&p, *x)).collect::<Vec<F>>();
+
+        let should_be_p = lagrange_interpolate(&xs, &ys);
+        assert_eq!(should_be_p, p);
     }
 }

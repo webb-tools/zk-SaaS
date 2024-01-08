@@ -2,6 +2,8 @@ use ark_ff::{batch_inversion, FftField, Field};
 use ark_poly::domain::DomainCoeff;
 use std::mem;
 
+/// Evaluates a polynomial given in coefficient form at a point `x`
+/// Assumes that coefficients are arranged as `[p_0, p_1, ..., p_{n-1}]`
 pub fn eval<F>(p: &[F], x: F) -> F
 where
     F: Field,
@@ -12,6 +14,7 @@ where
         .fold(F::zero(), |acc, &coeff| acc * x + coeff)
 }
 
+/// Evaluates a polynomial given in coefficient form at a set of points `xs`
 pub fn eval_many<F>(p: &[F], xs: &[F]) -> Vec<F>
 where
     F: Field,
@@ -19,6 +22,8 @@ where
     xs.iter().map(|x| eval(p, *x)).collect()
 }
 
+/// Carries out synthetic division of a polynomial `p` by a divisor of 
+/// the form `(x^a - b)` in linear time.
 pub fn syn_div<F>(p: &[F], a: usize, b: F) -> Vec<F>
 where
     F: Field,
@@ -68,6 +73,8 @@ where
     }
 }
 
+/// Carries out lagrange interpolation of a polynomial given in evaluation form
+/// returns coefficients of the polynomial arranged as `[p_0, p_1, ..., p_{n-1}]`
 pub fn lagrange_interpolate<T: DomainCoeff<F>, F: FftField>(
     xs: &[F],
     ys: &[T],
@@ -94,6 +101,17 @@ pub fn lagrange_interpolate<T: DomainCoeff<F>, F: FftField>(
             *res += tmp;
         }
     }
+
+    // remove leading zeros
+    let mut truncate_pos = result.len();
+    for i in (0..result.len()).rev() {
+        if result[i] != T::zero() {
+            truncate_pos = i + 1;
+            break;
+        }
+    }
+    result.truncate(truncate_pos);
+    
 
     result
 }
