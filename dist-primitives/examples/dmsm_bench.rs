@@ -29,9 +29,17 @@ pub async fn d_msm_test<G: CurveGroup, Net: MpcNet>(
     let x_share_aff: Vec<G::Affine> =
         x_share.iter().map(|s| (*s).into()).collect();
 
-    d_msm::<G, _>(&x_share_aff, &y_share, pp, net, MultiplexedStreamID::One)
-        .await
-        .unwrap();
+    d_msm::<G, _>(
+        &x_share_aff,
+        &y_share,
+        G::zero(),
+        G::zero(),
+        pp,
+        net,
+        MultiplexedStreamID::One,
+    )
+    .await
+    .unwrap();
 }
 
 #[tokio::main]

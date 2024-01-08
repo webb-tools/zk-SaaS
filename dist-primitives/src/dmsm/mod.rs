@@ -8,6 +8,8 @@ use crate::utils::pack::best_unpack;
 pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
     bases: &[G::Affine],
     scalars: &[G::ScalarField],
+    in_mask: G,
+    out_mask: G,
     pp: &PackedSharingParams<G::ScalarField>,
     net: &Net,
     sid: MultiplexedStreamID,
@@ -19,6 +21,7 @@ pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
     debug_assert_eq!(bases.len(), scalars.len());
     log::debug!("bases: {}, scalars: {}", bases.len(), scalars.len());
     let c_share = G::msm(bases, scalars)?;
+    let c_share = c_share + in_mask;
     // Now we do degree reduction -- psstoss
     // Send to king who reduces and sends shamir shares (not packed).
     // Should be randomized. First convert to projective share.
@@ -34,8 +37,15 @@ pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
             vec![output; n_parties]
         });
 
-    net.client_receive_or_king_send_serialized(king_answer, sid)
-        .await
+    let result = net
+        .client_receive_or_king_send_serialized(king_answer, sid)
+        .await;
+
+    if let Ok(output) = result {
+        Ok(output + out_mask)
+    } else {
+        result
+    }
 }
 
 #[cfg(test)]

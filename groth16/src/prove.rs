@@ -1,6 +1,7 @@
 #![allow(non_snake_case, clippy::too_many_arguments)]
 
 use ark_ec::pairing::Pairing;
+use ark_ff::Zero;
 use dist_primitives::dmsm::d_msm;
 use mpc_net::{MpcNet, MpcNetError, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
@@ -38,7 +39,16 @@ impl<'a, E: Pairing> A<'a, E> {
         let v1 = self.L + v0;
 
         // Calculate ∏{i∈[0,m]}(S_i)^a_i using dmsm
-        let prod = d_msm::<E::G1, _>(self.S, self.a, self.pp, net, sid).await?;
+        let prod = d_msm::<E::G1, _>(
+            self.S,
+            self.a,
+            E::G1::zero(),
+            E::G1::zero(),
+            self.pp,
+            net,
+            sid,
+        )
+        .await?;
 
         let A = v1 + prod;
 
@@ -77,7 +87,16 @@ impl<'a, E: Pairing> B<'a, E> {
         // Calculate Z.(K)^s
         let v1 = self.Z + v0;
         // Calculate ∏{i∈[0,m]}(V_i)^a_i using dmsm
-        let prod = d_msm::<E::G2, _>(self.V, self.a, self.pp, net, sid).await?;
+        let prod = d_msm::<E::G2, _>(
+            self.V,
+            self.a,
+            E::G2::zero(),
+            E::G2::zero(),
+            self.pp,
+            net,
+            sid,
+        )
+        .await?;
 
         let B = v1 + prod;
 
@@ -115,12 +134,38 @@ impl<'a, E: Pairing> C<'a, E> {
         const CHANNEL1: MultiplexedStreamID = MultiplexedStreamID::One;
         const CHANNEL2: MultiplexedStreamID = MultiplexedStreamID::Two;
 
+        // todo: replace in_mask and out_mask
+
         // Calculate ∏{i∈[l+1,m]}(W_i)^a_i using dmsm
-        let w = d_msm::<E::G1, _>(self.W, self.ax, self.pp, net, CHANNEL0);
+        let w = d_msm::<E::G1, _>(
+            self.W,
+            self.ax,
+            E::G1::zero(),
+            E::G1::zero(),
+            self.pp,
+            net,
+            CHANNEL0,
+        );
         // Calculate ∏{i∈[0,Q−2]}(U_i)^h_i using dmsm
-        let u = d_msm::<E::G1, _>(self.U, self.h, self.pp, net, CHANNEL1);
+        let u = d_msm::<E::G1, _>(
+            self.U,
+            self.h,
+            E::G1::zero(),
+            E::G1::zero(),
+            self.pp,
+            net,
+            CHANNEL1,
+        );
         // Calculate ∏{i∈[0,m]}(H_i)^a_i using dmsm
-        let h = d_msm::<E::G1, _>(self.H, self.a, self.pp, net, CHANNEL2);
+        let h = d_msm::<E::G1, _>(
+            self.H,
+            self.a,
+            E::G1::zero(),
+            E::G1::zero(),
+            self.pp,
+            net,
+            CHANNEL2,
+        );
 
         let (w, u, h) = tokio::try_join!(w, u, h)?;
 
