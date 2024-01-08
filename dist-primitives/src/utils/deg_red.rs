@@ -15,12 +15,19 @@ pub async fn deg_red<
     Net: MpcSerNet,
 >(
     x_share: Vec<T>,
+    in_mask: Vec<T>,
+    out_mask: Vec<T>,
     pp: &PackedSharingParams<F>,
     net: &Net,
     sid: MultiplexedStreamID,
 ) -> Result<Vec<T>, MpcNetError> {
+    
+    debug_assert_eq!(x_share.len(), in_mask.len());
+    debug_assert_eq!(x_share.len(), out_mask.len());
+
+    let x_mask = x_share.into_iter().zip(in_mask.into_iter()).map(|(x, m)| x + m).collect();
     let received_shares = net
-        .client_send_or_king_receive_serialized(&x_share, sid, pp.t)
+        .client_send_or_king_receive_serialized(&x_mask, sid, pp.t)
         .await?;
 
     let king_answer: Option<Vec<Vec<T>>> = received_shares.map(|rs| {
@@ -33,8 +40,19 @@ pub async fn deg_red<
         transpose(x_shares)
     });
 
-    net.client_receive_or_king_send_serialized(king_answer, sid)
-        .await
+    let result = net.client_receive_or_king_send_serialized(king_answer, sid)
+        .await;
+
+    if let Ok(x_share) = result {
+        Ok(x_share
+            .into_iter()
+            .zip(out_mask.into_iter())
+            .map(|(x, m)| x + m)
+            .collect()
+        )
+    } else {
+        result
+    }
 }
 
 #[cfg(test)]
@@ -60,14 +78,25 @@ mod tests {
 
         let shares = pp.pack(secrets, rng);
         let mul_shares: Vec<F> = shares.iter().map(|x| (*x) * (*x)).collect();
+
+        let mut mask_values = Vec::new();
+        for _ in 0..pp.l {
+            mask_values.push(F::rand(rng));
+        }
+        let in_masks = pp.pack(mask_values.clone(), rng);
+        // negate every value of mask_values
+        let out_masks = pp.pack(mask_values.into_iter().map(|x| -x).collect(), rng);
+
         let rs: ReceivedShares<Vec<F>> = network
             .simulate_lossy_network_round(
-                (mul_shares, pp),
-                |net, (mul_shares, pp)| async move {
+                (mul_shares, in_masks, out_masks, pp),
+                |net, (mul_shares, in_masks, out_masks, pp)| async move {
                     let idx = net.party_id() as usize;
                     let mul_share = mul_shares[idx].clone();
                     deg_red(
                         vec![mul_share],
+                        vec![in_masks[idx]],
+                        vec![out_masks[idx]],
                         &pp,
                         &net,
                         MultiplexedStreamID::One,

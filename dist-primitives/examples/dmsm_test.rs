@@ -27,8 +27,6 @@ pub async fn d_msm_test<G: CurveGroup, Net: MpcNet>(
     for _ in 0..dom.size() {
         y_pub.push(G::ScalarField::rand(rng));
         x_pub.push(G::rand(rng));
-        // y_pub.push(G::ScalarField::zero());
-        // x_pub.push(G::zero());
     }
 
     let x_share: Vec<G> = x_pub
@@ -57,6 +55,7 @@ pub async fn d_msm_test<G: CurveGroup, Net: MpcNet>(
     }
     let mask_values: Vec<G> = mask_values.iter().map(|x| g * x).collect();
     let out_mask = -(mask_values.iter().sum::<G>());
+    // todo: use pack here instead of det_pack
     let in_mask = pp.det_pack(mask_values)[net.party_id() as usize];
 
     let output = d_msm::<G, Net>(
