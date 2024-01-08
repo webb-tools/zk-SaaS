@@ -36,7 +36,6 @@ where
 
 impl<F: FftField> PackedSharingParams<F> {
     /// Creates a new instance of PackedSharingParams with the given packing factor
-    #[allow(unused)]
     pub fn new(l: usize) -> Self {
         let n = l * 4;
         let t = l;
@@ -67,7 +66,6 @@ impl<F: FftField> PackedSharingParams<F> {
     }
 
     /// Deterministically packs secrets into shares
-    #[allow(unused)]
     pub fn det_pack<T: DomainCoeff<F> + UniformRand>(
         &self,
         secrets: Vec<T>,
@@ -89,7 +87,6 @@ impl<F: FftField> PackedSharingParams<F> {
     }
 
     /// Packs secrets into shares
-    #[allow(unused)]
     pub fn pack<T: DomainCoeff<F> + UniformRand>(
         &self,
         secrets: Vec<T>,
@@ -125,7 +122,6 @@ impl<F: FftField> PackedSharingParams<F> {
     }
 
     /// Unpacks shares of degree t+l into secrets
-    #[allow(unused)]
     pub fn unpack<T: DomainCoeff<F>>(&self, shares: Vec<T>) -> Vec<T> {
         let mut result = shares;
 
@@ -142,7 +138,6 @@ impl<F: FftField> PackedSharingParams<F> {
     }
 
     /// Unpacks shares of degree 2(t+l) into secrets
-    #[allow(unused)]
     pub fn unpack2<T: DomainCoeff<F>>(&self, shares: Vec<T>) -> Vec<T> {
         let mut result = shares;
 
@@ -207,6 +202,22 @@ impl<F: FftField> PackedSharingParams<F> {
         result = result[0..2 * self.l].iter().step_by(2).copied().collect();
 
         result
+    }
+
+    /// A default implementation of unpacking when there may be missing shares
+    /// Uses unpack2 if there are no missing shares
+    /// Falls back to lagrange_unpack if there are missing shares
+    pub fn unpack_missing_shares<T: DomainCoeff<F>>(
+        &self,
+        shares: &[T],
+        parties: &[u32],
+    ) -> Vec<T> {
+        debug_assert_eq!(shares.len(), parties.len());
+        if shares.len() == self.n {
+            self.unpack2(shares.to_vec())
+        } else {
+            self.lagrange_unpack(shares, parties)
+        }
     }
 }
 
@@ -303,10 +314,8 @@ mod tests {
     fn test_eval_interpolate() {
         let degree = 32u32;
         let rng = &mut ark_std::test_rng();
-        let p = (0..degree)
-            .map(|_| F::rand(rng))
-            .collect::<Vec<F>>();
-        let xs = (1..=2*degree).map(|x| F::from(x)).collect::<Vec<F>>();
+        let p = (0..degree).map(|_| F::rand(rng)).collect::<Vec<F>>();
+        let xs = (1..=2 * degree).map(|x| F::from(x)).collect::<Vec<F>>();
         let ys = xs.iter().map(|x| eval(&p, *x)).collect::<Vec<F>>();
 
         let should_be_p = lagrange_interpolate(&xs, &ys);

@@ -1,4 +1,4 @@
-use crate::utils::pack::{best_unpack, pack_vec, transpose};
+use crate::utils::pack::{pack_vec, transpose};
 use ark_ff::{FftField, PrimeField};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::log2;
@@ -187,7 +187,7 @@ async fn fft2_with_rearrange<F: FftField + PrimeField, Net: MpcSerNet>(
         let mut s1: Vec<F> = vec![F::zero(); px.len() * pp.l];
 
         for (i, share) in (0..mbyl).zip(all_shares) {
-            let tmp = best_unpack(&share, &rs.parties, pp);
+            let tmp = pp.unpack_missing_shares(&share, &rs.parties);
 
             for j in 0..pp.l {
                 s1[i * pp.l + j] = tmp[j];

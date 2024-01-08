@@ -22,7 +22,7 @@ where
     xs.iter().map(|x| eval(p, *x)).collect()
 }
 
-/// Carries out synthetic division of a polynomial `p` by a divisor of 
+/// Carries out synthetic division of a polynomial `p` by a divisor of
 /// the form `(x^a - b)` in linear time.
 pub fn syn_div<F>(p: &[F], a: usize, b: F) -> Vec<F>
 where
@@ -111,7 +111,6 @@ pub fn lagrange_interpolate<T: DomainCoeff<F>, F: FftField>(
         }
     }
     result.truncate(truncate_pos);
-    
 
     result
 }

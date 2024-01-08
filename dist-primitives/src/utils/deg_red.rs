@@ -6,7 +6,7 @@ use mpc_net::ser_net::MpcSerNet;
 use mpc_net::{MpcNetError, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
 
-use super::pack::{best_unpack, transpose};
+use super::pack::transpose;
 
 /// Reduces the degree of a poylnomial with the help of king
 pub async fn deg_red<
@@ -34,7 +34,7 @@ pub async fn deg_red<
         let mut x_shares = transpose(rs.shares);
 
         for x_share in &mut x_shares {
-            let xi: Vec<T> = best_unpack(x_share, &rs.parties, pp);
+            let xi: Vec<T> = pp.unpack_missing_shares(x_share, &rs.parties);
             *x_share = pp.pack(xi, &mut rand::thread_rng());
         }
         transpose(x_shares)

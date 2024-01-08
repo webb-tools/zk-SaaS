@@ -3,7 +3,7 @@
 
 use crate::utils::{
     deg_red::deg_red,
-    pack::{best_unpack, pack_vec, transpose},
+    pack::{pack_vec, transpose},
 };
 use ark_ff::{FftField, Field, PrimeField};
 use mpc_net::ser_net::MpcSerNet;
@@ -46,7 +46,7 @@ pub async fn d_pp<F: FftField + PrimeField + Field, Net: MpcSerNet>(
         // iterate over pxss_shares, unpack to get a vector and append all the vectors
         let mut numden: Vec<F> = numden_shares
             .into_iter()
-            .flat_map(|x| best_unpack(&x, &rs.parties, pp))
+            .flat_map(|x| pp.unpack_missing_shares(&x, &rs.parties))
             .collect();
 
         for i in 0..numden.len() / 2 {

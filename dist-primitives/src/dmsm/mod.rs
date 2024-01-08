@@ -3,8 +3,6 @@ use mpc_net::ser_net::MpcSerNet;
 use mpc_net::{MpcNetError, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
 
-use crate::utils::pack::best_unpack;
-
 pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
     bases: &[G::Affine],
     scalars: &[G::ScalarField],
@@ -32,7 +30,7 @@ pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
         .map(|rs| {
             // TODO: Mask with random values.
 
-            let result = best_unpack(&rs.shares, &rs.parties, pp);
+            let result = pp.unpack_missing_shares(&rs.shares, &rs.parties);
             let output: G = result.iter().sum();
             vec![output; n_parties]
         });
