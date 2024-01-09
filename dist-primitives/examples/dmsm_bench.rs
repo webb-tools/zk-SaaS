@@ -2,7 +2,7 @@ use ark_bls12_377::Fr;
 use ark_ec::CurveGroup;
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::{UniformRand, Zero};
-use dist_primitives::dmsm::d_msm;
+use dist_primitives::dmsm::{d_msm, MsmMask};
 use mpc_net::{LocalTestNet as Net, MpcNet, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
 
@@ -29,11 +29,11 @@ pub async fn d_msm_test<G: CurveGroup, Net: MpcNet>(
     let x_share_aff: Vec<G::Affine> =
         x_share.iter().map(|s| (*s).into()).collect();
 
+    let msm_mask = MsmMask::<G>::new(G::zero(), G::zero());
     d_msm::<G, _>(
         &x_share_aff,
         &y_share,
-        G::zero(),
-        G::zero(),
+        &msm_mask,
         pp,
         net,
         MultiplexedStreamID::One,

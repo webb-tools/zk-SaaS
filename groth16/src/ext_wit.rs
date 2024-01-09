@@ -3,7 +3,7 @@ use ark_ff::{FftField, PrimeField};
 use ark_poly::{EvaluationDomain, Radix2EvaluationDomain};
 use ark_std::cfg_into_iter;
 use dist_primitives::dfft::{d_fft, d_ifft};
-use dist_primitives::utils::deg_red::deg_red;
+use dist_primitives::utils::deg_red::{deg_red, DegRedMask};
 use mpc_net::ser_net::MpcSerNet;
 use mpc_net::{MpcNetError, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
@@ -99,6 +99,7 @@ pub async fn circom_h<
     Net: MpcSerNet,
 >(
     qap_share: PackedQAPShare<F, D>,
+    degred_mask: &DegRedMask<F, F>,
     pp: &PackedSharingParams<F>,
     net: &Net,
 ) -> Result<Vec<F>, MpcNetError> {
@@ -139,7 +140,7 @@ pub async fn circom_h<
         .map(|((a, b), c)| (a * b - c))
         .collect::<Vec<_>>();
 
-    let h_eval_red = deg_red(h_eval, pp, net, CHANNEL0).await?;
+    let h_eval_red = deg_red(h_eval, degred_mask, pp, net, CHANNEL0).await?;
     Ok(h_eval_red)
 }
 
@@ -153,8 +154,10 @@ mod tests {
     use ark_relations::r1cs::ConstraintSynthesizer;
     use ark_relations::r1cs::ConstraintSystem;
     use ark_std::cfg_iter_mut;
+    use dist_primitives::utils::deg_red::DegRedMask;
     use dist_primitives::utils::pack::transpose;
     use mpc_net::LocalTestNet;
+    use rand::thread_rng;
 
     use crate::qap::QAP;
 
@@ -297,7 +300,7 @@ mod tests {
 
     #[tokio::test]
     async fn circom_dummy_ext_witness() {
-        let m = 8usize;
+        let m = 1 << 10;
 
         let a = (0..m).map(|x| Bn254Fr::from(x as u64)).collect::<Vec<_>>();
         let b = (0..m).map(|x| Bn254Fr::from(x as u64)).collect::<Vec<_>>();
@@ -322,13 +325,20 @@ mod tests {
         };
         let qap_shares = qap.pss(&pp);
         let network = LocalTestNet::new_local_testnet(pp.n).await.unwrap();
-
+        let rng = &mut thread_rng();
+        let degred_masks = DegRedMask::<Bn254Fr, Bn254Fr>::sample(
+            &pp,
+            Bn254Fr::from(1u32),
+            domain.size() / pp.l,
+            rng,
+        );
         let result = network
             .simulate_network_round(
-                (pp.clone(), qap_shares),
-                |net, (pp, qap_shares)| async move {
+                (pp.clone(), qap_shares, degred_masks),
+                |net, (pp, qap_shares, degred_masks)| async move {
                     circom_h(
                         qap_shares[net.party_id() as usize].clone(),
+                        &degred_masks[net.party_id() as usize],
                         &pp,
                         &net,
                     )
@@ -381,12 +391,20 @@ mod tests {
         let pp = PackedSharingParams::new(2);
         let network = LocalTestNet::new_local_testnet(pp.n).await.unwrap();
         let qap_shares = qap.pss(&pp);
+        let rng = &mut thread_rng();
+        let degred_masks = DegRedMask::<Bn254Fr, Bn254Fr>::sample(
+            &pp,
+            Bn254Fr::from(1u32),
+            qap_shares[0].domain.size() / pp.l,
+            rng,
+        );
         let result = network
             .simulate_network_round(
-                (pp.clone(), qap_shares),
-                |net, (pp, qap_shares)| async move {
+                (pp.clone(), qap_shares, degred_masks),
+                |net, (pp, qap_shares, degred_masks)| async move {
                     circom_h(
                         qap_shares[net.party_id() as usize].clone(),
+                        &degred_masks[net.party_id() as usize],
                         &pp,
                         &net,
                     )

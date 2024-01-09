@@ -59,7 +59,9 @@ where
         in_mask_shares
             .into_iter()
             .zip(out_mask_shares.iter())
-            .map(|(in_mask, out_mask)| Self::new(in_mask, out_mask.clone()))
+            .map(|(in_mask_share, out_mask_share)| {
+                Self::new(in_mask_share, out_mask_share.clone())
+            })
             .collect()
     }
 }

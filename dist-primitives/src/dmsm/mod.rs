@@ -1,13 +1,54 @@
 use ark_ec::CurveGroup;
+use ark_ff::UniformRand;
 use mpc_net::ser_net::MpcSerNet;
 use mpc_net::{MpcNetError, MultiplexedStreamID};
 use secret_sharing::pss::PackedSharingParams;
 
+/// Masks used in dmsm
+/// Note that this only contains one share of the mask
+#[derive(Clone)]
+pub struct MsmMask<G: CurveGroup> {
+    pub in_mask: G,
+    pub out_mask: G,
+}
+
+impl<G: CurveGroup> MsmMask<G> {
+    pub fn new(in_mask: G, out_mask: G) -> Self {
+        Self { in_mask, out_mask }
+    }
+
+    /// Samples a random MsmMask and returns the shares of n parties
+    pub fn sample(
+        pp: &PackedSharingParams<G::ScalarField>,
+        rng: &mut impl rand::Rng,
+    ) -> Vec<Self> {
+        let gen = G::generator();
+        let mut mask_values = Vec::new();
+        for _ in 0..pp.l {
+            mask_values.push(G::ScalarField::rand(rng));
+        }
+
+        let mask_values: Vec<G> = mask_values.iter().map(|x| gen * x).collect();
+        let out_mask_value = -(mask_values.iter().sum::<G>());
+
+        let in_mask_shares = pp.pack(mask_values, rng);
+
+        // TODO: use regular secret sharing here. Currently using packed secret sharing with repeated secrets.
+        // doesn't affect correctness/privacy but would give a little bit of performance
+        let out_mask_shares = pp.pack(vec![out_mask_value; pp.l], rng);
+
+        in_mask_shares
+            .into_iter()
+            .zip(out_mask_shares.iter())
+            .map(|(in_mask_share, out_mask_share)| Self::new(in_mask_share, out_mask_share.clone()))
+            .collect()
+    }
+}
+
 pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
     bases: &[G::Affine],
     scalars: &[G::ScalarField],
-    in_mask: G,
-    out_mask: G,
+    msm_mask: &MsmMask<G>,
     pp: &PackedSharingParams<G::ScalarField>,
     net: &Net,
     sid: MultiplexedStreamID,
@@ -19,7 +60,7 @@ pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
     debug_assert_eq!(bases.len(), scalars.len());
     log::debug!("bases: {}, scalars: {}", bases.len(), scalars.len());
     let c_share = G::msm(bases, scalars)?;
-    let c_share = c_share + in_mask;
+    let c_share = c_share + msm_mask.in_mask;
     // Now we do degree reduction -- psstoss
     // Send to king who reduces and sends shamir shares (not packed).
     // Should be randomized. First convert to projective share.
@@ -39,8 +80,11 @@ pub async fn d_msm<G: CurveGroup, Net: MpcSerNet>(
         .client_receive_or_king_send_serialized(king_answer, sid)
         .await;
 
+    // At the end all parties hold a packed secret sharing of the output
+    // Note that the output is just a single group element and it is shared
+    // using "repeated" packed secret sharing i.e equivalent to pp.pack(vec![output; pp.l])
     if let Ok(output) = result {
-        Ok(output + out_mask)
+        Ok(output + msm_mask.out_mask)
     } else {
         result
     }
