@@ -2,7 +2,7 @@
 // Given x1, x2, .., xn, output x1, x1*x2, x1*x2*x3, .., x1*x2*..*xn
 
 use crate::utils::{
-    deg_red::deg_red,
+    deg_red::{deg_red, DegRedMask},
     pack::{pack_vec, transpose},
 };
 use ark_ff::{FftField, Field, PrimeField};
@@ -15,10 +15,12 @@ use secret_sharing::pss::PackedSharingParams;
 pub async fn d_pp<F: FftField + PrimeField + Field, Net: MpcSerNet>(
     num: Vec<F>,
     den: Vec<F>,
+    degred_mask: &DegRedMask<F, F>,
     pp: &PackedSharingParams<F>,
     net: &Net,
     sid: MultiplexedStreamID,
 ) -> Result<Vec<F>, MpcNetError> {
+    // TODO: replace with good randomness
     // using some dummy randomness
     let s = F::from(1_u32);
     let sinv = s.inverse().unwrap();
@@ -80,7 +82,6 @@ pub async fn d_pp<F: FftField + PrimeField + Field, Net: MpcSerNet>(
     // Finally, remove the ranomness in the partial products
     // multiply all entries of pp_pxss by of s
     // do degree reduction
-    // todo: replace in_mask and out_mask
     pp_numden_rand.iter_mut().for_each(|x| *x *= sinv);
-    deg_red(pp_numden_rand, vec![F::zero(); pp.l], vec![F::zero(); pp.l], pp, net, sid).await //packed shares of partial products
+    deg_red(pp_numden_rand, degred_mask, pp, net, sid).await //packed shares of partial products
 }

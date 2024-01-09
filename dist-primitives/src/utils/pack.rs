@@ -1,12 +1,13 @@
 use ark_ff::FftField;
-use ark_std::cfg_chunks;
+use ark_poly::domain::DomainCoeff;
+use ark_std::{cfg_chunks, UniformRand};
 use rand::thread_rng;
 use secret_sharing::pss::PackedSharingParams;
 
-pub fn pack_vec<F: FftField>(
-    secrets: &Vec<F>,
+pub fn pack_vec<F: FftField, T: DomainCoeff<F> + UniformRand>(
+    secrets: &Vec<T>,
     pp: &PackedSharingParams<F>,
-) -> Vec<Vec<F>> {
+) -> Vec<Vec<T>> {
     debug_assert_eq!(secrets.len() % pp.l, 0, "Mismatch of size in pack_vec");
 
     let rng = &mut thread_rng();
